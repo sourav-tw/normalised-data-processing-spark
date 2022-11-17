@@ -1,23 +1,31 @@
-22/11/17 01:12:27 INFO NormalizedDataProcessing$: Creating connection properties for connecting to postgresql
-22/11/17 01:12:27 INFO NormalizedDataProcessing$: Create Spark Session
-22/11/17 01:12:28 INFO NormalizedDataProcessing$: Read JSON data
-22/11/17 01:12:29 INFO NormalizedDataProcessing$: Denormalize complex JSON data
-22/11/17 01:12:29 INFO NormalizedDataProcessing$: Get Spark Context
-22/11/17 01:12:29 INFO NormalizedDataProcessing$: Broadcast JDBC connection parameters to each partition/executor
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Loop through 3 partitions with individual data
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Get broadcast values
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Extract values from broadcast object
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Loop through each data row in the partition
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Read column values from individual row
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Check if employee data exists
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Determine whether the current record is needed to be updated or inserted
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Add row data for batch updates
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Execute batched records
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Read column values from individual row
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Check if employee data exists
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Determine whether the current record is needed to be updated or inserted
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Add row data for batch updates
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Execute batched records
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Commit records
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Close DB connection for each partition
-22/11/17 01:12:30 INFO NormalizedDataProcessing$: Stop Spark Session
+22/11/17 12:53:44 INFO NormalizedDataProcessing$: Creating connection properties for connecting to postgresql
+22/11/17 12:53:44 INFO NormalizedDataProcessing$: Create Spark Session
+22/11/17 12:53:44 INFO NormalizedDataProcessing$: Read JSON data
+22/11/17 12:53:46 INFO NormalizedDataProcessing$: Denormalize complex JSON data
+22/11/17 12:53:46 INFO NormalizedDataProcessing$: Get Spark Context
+22/11/17 12:53:46 INFO NormalizedDataProcessing$: Broadcast JDBC connection parameters to each partition/executor
+22/11/17 12:53:46 INFO NormalizedDataProcessing$: Loop through 3 partitions with individual data
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Get broadcast values
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Extract values from broadcast object
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Loop through each data row in the partition
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Read column values from individual row
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Check if employee data exists
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Check for existing address
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Determine whether the current record is needed to be updated or inserted
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Add row data for batch updates
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Execute batched records
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Read column values from individual row
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Check if employee data exists
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Check for existing address
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Determine whether the current record is needed to be updated or inserted
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Add row data for batch updates
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Execute batched records
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Read column values from individual row
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Check if employee data exists
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Check for existing address
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Determine whether the current record is needed to be updated or inserted
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Add row data for batch updates
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Execute batched records
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Commit records
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Close DB connection for each partition
+22/11/17 12:53:47 INFO NormalizedDataProcessing$: Stop Spark Session

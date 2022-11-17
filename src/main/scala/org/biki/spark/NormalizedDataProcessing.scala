@@ -5,8 +5,8 @@ import org.apache.spark.sql.functions.expr
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SparkSession}
 
-import java.sql.{DriverManager, PreparedStatement}
-import java.util.Properties
+import java.sql.{DriverManager, PreparedStatement, ResultSet}
+import java.util.{Properties, UUID}
 
 object NormalizedDataProcessing {
 
@@ -15,7 +15,7 @@ object NormalizedDataProcessing {
   def main(args: Array[String]): Unit = {
 
     logger.info("Creating connection properties for connecting to postgresql")
-    val jdbcUrl = scala.util.Properties.envOrElse("JDBC_URL", "jdbc:postgresql://localhost:5432/bookshop-db")
+    val jdbcUrl = scala.util.Properties.envOrElse("JDBC_URL","jdbc:postgresql://localhost:5432/bookshop-db")
     val jdbcDriver = scala.util.Properties.envOrElse("JDBC_DRIVER","org.postgresql.postgresql")
     val user = scala.util.Properties.envOrElse("DB_USERNAME","postgres")
     val password = scala.util.Properties.envOrElse("DB_PASSWORD","postgres")
@@ -103,7 +103,7 @@ object NormalizedDataProcessing {
           val pinCode = row.getString(pinCodeIdx)
 
           logger.info("Check if employee data exists")
-          val sqlString = "SELECT * FROM public.employees WHERE employeeId=?"
+          val sqlString = "SELECT * FROM public.employee_details_view WHERE employeeId=?"
           var stmt: PreparedStatement = dbConnection.prepareStatement(sqlString)
 
           stmt.setLong(1, employeeId)
@@ -113,6 +113,21 @@ object NormalizedDataProcessing {
           while (result.next()) {
             count = 1
           }
+
+          logger.info("Check for existing address")
+          val addressSQLString = "SELECT * FROM public.employee_details_view WHERE city=? AND district=? AND pinCode=?"
+          var addressStmt: PreparedStatement = dbConnection.prepareStatement(addressSQLString, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ResultSet.CONCUR_UPDATABLE)
+
+          addressStmt.setString(1, city)
+          addressStmt.setString(2, district)
+          addressStmt.setString(3, pinCode)
+
+          val addressResult = addressStmt.executeQuery()
+          var uniqueAddressId: String = null
+
+          if (addressResult.first())
+            uniqueAddressId = addressResult.getString("ain")
 
           logger.info("Determine whether the current record is needed to be updated or inserted")
           var dmlOption: String = null
@@ -124,15 +139,40 @@ object NormalizedDataProcessing {
           }
 
           if (dmlOption == "U") {
-            val updateSQLString = "UPDATE public.employees SET firstName=?,lastName=? WHERE employeeId=?"
-            prepareStatement = dbConnection.prepareStatement(updateSQLString)
 
-            prepareStatement.setString(1, firstName)
-            prepareStatement.setString(2, lastName)
-            prepareStatement.setLong(3, employeeId)
+            if (uniqueAddressId == null){
+              val updateSQLString =
+                """
+                  |WITH INSERTED as (
+                  |	INSERT INTO public.employeeaddresses(city,district,pinCode) VALUES (?,?,?)
+                  |	RETURNING ain
+                  |)
+                  |UPDATE public.employees
+                  |SET ain = (SELECT ain FROM INSERTED)
+                  |WHERE employeeId=?
+                  |""".stripMargin
+
+              prepareStatement = dbConnection.prepareStatement(updateSQLString)
+
+              prepareStatement.setString(1, city)
+              prepareStatement.setString(2, district)
+              prepareStatement.setString(3, pinCode)
+              prepareStatement.setLong(4, employeeId)
+            }
+            else {
+              val updateSQLString = "UPDATE public.employees SET firstName=?,lastName=?,ain=? WHERE employeeId=?"
+              prepareStatement = dbConnection.prepareStatement(updateSQLString)
+
+              prepareStatement.setString(1, firstName)
+              prepareStatement.setString(2, lastName)
+              prepareStatement.setObject(3,UUID.fromString(uniqueAddressId))
+              prepareStatement.setLong(4, employeeId)
+            }
           }
           else if (dmlOption == "I") {
-            val insertSQLString =
+            var insertSQLString:String = null
+            if (uniqueAddressId == null) {
+              insertSQLString =
               """
                 |WITH INSERTED as (
                 |	INSERT INTO public.employeeaddresses(city,district,pinCode) VALUES (?,?,?)
@@ -142,19 +182,37 @@ object NormalizedDataProcessing {
                 |SELECT ?,?,?,ain
                 |FROM INSERTED
                 |""".stripMargin
+            }
+            else {
+              insertSQLString =
+                """
+                  |INSERT INTO public.employees(firstname,lastname,employeeId,ain)
+                  |VALUES (?,?,?,?)
+                  |""".stripMargin
+            }
 
             prepareStatement = dbConnection.prepareStatement(insertSQLString)
 
-            prepareStatement.setString(1, city)
-            prepareStatement.setString(2, district)
-            prepareStatement.setString(3, pinCode)
-            prepareStatement.setString(4, firstName)
-            prepareStatement.setString(5, lastName)
-            prepareStatement.setLong(6, employeeId)
+            if (uniqueAddressId == null) {
+              prepareStatement.setString(1, city)
+              prepareStatement.setString(2, district)
+              prepareStatement.setString(3, pinCode)
+              prepareStatement.setString(4, firstName)
+              prepareStatement.setString(5, lastName)
+              prepareStatement.setLong(6, employeeId)
+            }
+            else{
+              prepareStatement.setString(1, firstName)
+              prepareStatement.setString(2, lastName)
+              prepareStatement.setLong(3, employeeId)
+              prepareStatement.setObject(4, UUID.fromString(uniqueAddressId))
+            }
           }
+
           logger.info("Add row data for batch updates")
           prepareStatement.addBatch()
           stmt.close()
+          addressStmt.close()
         }
           logger.info("Execute batched records")
           prepareStatement.executeBatch()
