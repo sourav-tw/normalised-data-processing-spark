@@ -64,7 +64,7 @@ object NormalizedDataProcessing {
 
           logger.info("Check if employee data exists")
 
-          var (stmt: PreparedStatement, count: Int) = checkForExistingEmployee(dbConnection,employeeId)
+          val (stmt: PreparedStatement, count: Int) = checkForExistingEmployee(dbConnection,employeeId)
           logger.info("Determine whether the current record is needed to be updated or inserted")
           var dmlOption: String = null
           if (count > 0) {
@@ -77,10 +77,10 @@ object NormalizedDataProcessing {
           if (dmlOption == "U") {
             var updateSQLString: String = null
             if (uniqueAddressId == null){
-               updateSQLString = prepareUpdateStatementWithNewAddress(employeeId, city, district, pinCode)
+               updateSQLString = prepareUpdateStatementWithNewAddress
             }
             else {
-              updateSQLString = prepareUpdateStatementWithExistingAddress(employeeId, firstName, lastName, uniqueAddressId)
+              updateSQLString = prepareUpdateStatementWithExistingAddress
             }
 
             prepareStatement = dbConnection.prepareStatement(updateSQLString)
@@ -103,7 +103,7 @@ object NormalizedDataProcessing {
             var insertSQLString:String = null
 
             if (uniqueAddressId == null) {
-              insertSQLString = prepareInsertStatmentWithNewAddress()
+              insertSQLString = prepareInsertStatementWithNewAddress()
             }
             else {
               insertSQLString = prepareInsertStatementWithExistingAddress()
@@ -216,7 +216,7 @@ object NormalizedDataProcessing {
 
   private def checkForExistingEmployee(dbConnection:Connection,employeeId:Long) = {
     val sqlString = "SELECT * FROM public.employee_details_view WHERE employeeId=?"
-    var stmt: PreparedStatement = dbConnection.prepareStatement(sqlString)
+    val stmt: PreparedStatement = dbConnection.prepareStatement(sqlString)
 
     stmt.setLong(1, employeeId)
     val result = stmt.executeQuery()
@@ -230,7 +230,7 @@ object NormalizedDataProcessing {
   private def getUniqueAddress(dbConnection:Connection,city:String,district:String,pinCode:String) = {
     logger.info("Check for existing address")
     val addressSQLString = "SELECT * FROM public.employee_details_view WHERE city=? AND district=? AND pinCode=?"
-    var addressStmt: PreparedStatement = dbConnection.prepareStatement(addressSQLString, ResultSet.TYPE_SCROLL_SENSITIVE,
+    val addressStmt: PreparedStatement = dbConnection.prepareStatement(addressSQLString, ResultSet.TYPE_SCROLL_SENSITIVE,
       ResultSet.CONCUR_UPDATABLE)
 
     addressStmt.setString(1, city)
@@ -245,7 +245,7 @@ object NormalizedDataProcessing {
     (addressStmt, uniqueAddressId)
   }
 
-  private def prepareInsertStatmentWithNewAddress(): String = {
+  private def prepareInsertStatementWithNewAddress(): String = {
     """
       |WITH INSERTED as (
       |	INSERT INTO public.employeeaddresses(city,district,pinCode) VALUES (?,?,?)
@@ -264,7 +264,7 @@ object NormalizedDataProcessing {
       |""".stripMargin
   }
 
-  private def prepareUpdateStatementWithNewAddress(employeeId: Long, city: String, district: String, pinCode: String): String = {
+  private def prepareUpdateStatementWithNewAddress: String = {
     """
       |WITH INSERTED as (
       |	INSERT INTO public.employeeaddresses(city,district,pinCode) VALUES (?,?,?)
@@ -276,7 +276,7 @@ object NormalizedDataProcessing {
       |""".stripMargin
   }
 
-  private def prepareUpdateStatementWithExistingAddress(employeeId: Long, firstName: String, lastName: String, uniqueAddressId: String): String = {
+  private def prepareUpdateStatementWithExistingAddress: String = {
     "UPDATE public.employees SET firstName=?,lastName=?,ain=? WHERE employeeId=?"
   }
 
