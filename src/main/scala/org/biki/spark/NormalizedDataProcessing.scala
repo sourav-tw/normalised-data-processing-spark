@@ -5,9 +5,8 @@ import org.apache.spark.sql.functions.expr
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
-import java.sql.{Connection, DriverManager, PreparedStatement, ResultSet}
+import java.sql._
 import java.util.{Properties, UUID}
-
 object NormalizedDataProcessing {
 
   @transient lazy val logger:Logger = Logger.getLogger(getClass.getName)
@@ -54,92 +53,100 @@ object NormalizedDataProcessing {
       var prepareStatement: PreparedStatement = null
 
       logger.info("Loop through each data row in the partition")
-      partition.grouped(db_batchSize).foreach(batch => {
-        batch.foreach { row => {
-          val (employeeId: Long, firstName: String, lastName: String, city: String, district: String, pinCode: String) = getDataElements(row)
+      try {
+        partition.grouped(db_batchSize).foreach(batch => {
+          batch.foreach { row => {
+            val (employeeId: Long, firstName: String, lastName: String, city: String, district: String, pinCode: String) = getDataElements(row)
 
-          var (addressStmt: PreparedStatement, uniqueAddressId: String) = getUniqueAddress(dbConnection,city,district,pinCode)
-          if(uniqueAddressId == "")
-            uniqueAddressId = null
+            var (addressStmt: PreparedStatement, uniqueAddressId: String) = getUniqueAddress(dbConnection, city, district, pinCode)
+            if (uniqueAddressId == "")
+              uniqueAddressId = null
 
-          logger.info("Check if employee data exists")
+            logger.info("Check if employee data exists")
 
-          val (stmt: PreparedStatement, count: Int) = checkForExistingEmployee(dbConnection,employeeId)
-          logger.info("Determine whether the current record is needed to be updated or inserted")
-          var dmlOption: String = null
-          if (count > 0) {
-            dmlOption = "U"
-          }
-          else {
-            dmlOption = "I"
-          }
-
-          if (dmlOption == "U") {
-            var updateSQLString: String = null
-            if (uniqueAddressId == null){
-               updateSQLString = prepareUpdateStatementWithNewAddress
+            val (stmt: PreparedStatement, count: Int) = checkForExistingEmployee(dbConnection, employeeId)
+            logger.info("Determine whether the current record is needed to be updated or inserted")
+            var dmlOption: String = null
+            if (count > 0) {
+              dmlOption = "U"
             }
             else {
-              updateSQLString = prepareUpdateStatementWithExistingAddress
+              dmlOption = "I"
             }
 
-            prepareStatement = dbConnection.prepareStatement(updateSQLString)
+            if (dmlOption == "U") {
+              var updateSQLString: String = null
+              if (uniqueAddressId == null) {
+                updateSQLString = prepareUpdateStatementWithNewAddress
+              }
+              else {
+                updateSQLString = prepareUpdateStatementWithExistingAddress
+              }
 
-            if (uniqueAddressId == null) {
-              prepareStatement.setString(1, city)
-              prepareStatement.setString(2, district)
-              prepareStatement.setString(3, pinCode)
-              prepareStatement.setLong(4, employeeId)
+              prepareStatement = dbConnection.prepareStatement(updateSQLString)
+
+              if (uniqueAddressId == null) {
+                prepareStatement.setString(1, city)
+                prepareStatement.setString(2, district)
+                prepareStatement.setString(3, pinCode)
+                prepareStatement.setLong(4, employeeId)
+              }
+              else {
+                prepareStatement.setString(1, firstName)
+                prepareStatement.setString(2, lastName)
+                prepareStatement.setObject(3, UUID.fromString(uniqueAddressId))
+                prepareStatement.setLong(4, employeeId)
+              }
             }
-            else {
-              prepareStatement.setString(1, firstName)
-              prepareStatement.setString(2, lastName)
-              prepareStatement.setObject(3, UUID.fromString(uniqueAddressId))
-              prepareStatement.setLong(4, employeeId)
+
+            else if (dmlOption == "I") {
+              var insertSQLString: String = null
+
+              if (uniqueAddressId == null) {
+                insertSQLString = prepareInsertStatementWithNewAddress()
+              }
+              else {
+                insertSQLString = prepareInsertStatementWithExistingAddress()
+              }
+
+              prepareStatement = dbConnection.prepareStatement(insertSQLString)
+
+              if (uniqueAddressId == null) {
+                prepareStatement.setString(1, city)
+                prepareStatement.setString(2, district)
+                prepareStatement.setString(3, pinCode)
+                prepareStatement.setString(4, firstName)
+                prepareStatement.setString(5, lastName)
+                prepareStatement.setLong(6, employeeId)
+              }
+              else {
+                prepareStatement.setString(1, firstName)
+                prepareStatement.setString(2, lastName)
+                prepareStatement.setLong(3, employeeId)
+                prepareStatement.setObject(4, UUID.fromString(uniqueAddressId))
+              }
             }
+
+            logger.info("Add row data for batch updates")
+            prepareStatement.addBatch()
+            stmt.close()
+            addressStmt.close()
           }
-
-          else if (dmlOption == "I") {
-            var insertSQLString:String = null
-
-            if (uniqueAddressId == null) {
-              insertSQLString = prepareInsertStatementWithNewAddress()
-            }
-            else {
-              insertSQLString = prepareInsertStatementWithExistingAddress()
-            }
-
-            prepareStatement = dbConnection.prepareStatement(insertSQLString)
-
-            if (uniqueAddressId == null) {
-              prepareStatement.setString(1, city)
-              prepareStatement.setString(2, district)
-              prepareStatement.setString(3, pinCode)
-              prepareStatement.setString(4, firstName)
-              prepareStatement.setString(5, lastName)
-              prepareStatement.setLong(6, employeeId)
-            }
-            else{
-              prepareStatement.setString(1, firstName)
-              prepareStatement.setString(2, lastName)
-              prepareStatement.setLong(3, employeeId)
-              prepareStatement.setObject(4, UUID.fromString(uniqueAddressId))
-            }
+            logger.info("Execute batched records")
+            prepareStatement.executeBatch()
           }
-
-          logger.info("Add row data for batch updates")
-          prepareStatement.addBatch()
-          stmt.close()
-          addressStmt.close()
-        }
-          logger.info("Execute batched records")
-          prepareStatement.executeBatch()
-        }
-      })
-      logger.info("Commit records")
-      dbConnection.commit()
-      logger.info("Close DB connection for each partition")
-      dbConnection.close()
+        })
+        logger.info("Commit records")
+        dbConnection.commit()
+      }
+      catch {
+        case e: SQLException => logger.error(e.getMessage)
+        case _: Throwable => logger.error("Something went wrong")
+      }
+      finally {
+        logger.info("Close DB connection for each partition")
+        dbConnection.close()
+      }
     })
       logger.info("Stop Spark Session")
       spark.stop()
